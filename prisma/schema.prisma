@@ -1,0 +1,217 @@
+
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Estado {
+  Pendiente_confirmacion
+  Inscrito_confirmado
+  Inscripcion_completa
+  Rechazada
+}
+
+enum EstadoJurado {
+  confirmado
+  no_confirmado
+}
+
+enum Tipo {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
+}
+
+model Usuario {
+  id               Int           @id @default(autoincrement())
+  nombre_completo  String
+  email            String        @unique
+  hash_contrasena  String
+  create_at        DateTime      @default(now())
+  update_at        DateTime      @default(now())
+  deleted          Boolean       @default(false)
+  estudiante       Estudiante?
+  jurado           Jurado?
+  nrcs             NRC[]         @relation("ProfesorNRC")
+  roles            RolUsuario[]
+}
+
+model Estudiante {
+  id             Int             @id @default(autoincrement())
+  equipo_id      Int
+  id_user        Int             @unique
+  github         String
+  confirmado     Boolean         @default(false)
+  create_at      DateTime        @default(now())
+  update_at      DateTime        @default(now())
+  deleted        Boolean         @default(false)
+  usuario        Usuario         @relation(fields: [id_user], references: [id])
+  equipo         Equipo          @relation(fields: [equipo_id], references: [id])
+  estudianteNrcs EstudianteNRC[]
+}
+
+model EstudianteNRC {
+  id_nrc         Int
+  id_estudiante  Int
+  create_at      DateTime        @default(now())
+  deleted        Boolean         @default(false)
+  nrc            NRC             @relation(fields: [id_nrc], references: [codigo_nrc])
+  estudiante     Estudiante      @relation(fields: [id_estudiante], references: [id])
+  @@id([id_nrc, id_estudiante])
+}
+
+model Jurado {
+  id                 Int             @id @default(autoincrement())
+  id_user            Int             @unique
+  estado             EstadoJurado    @default(no_confirmado)
+  token_confirmacion String
+  ultima_conexion    DateTime
+  create_at          DateTime        @default(now())
+  update_at          DateTime        @default(now())
+  deleted            Boolean         @default(false)
+  usuario            Usuario         @relation(fields: [id_user], references: [id])
+  evaluaciones       Evaluacion[]
+  asignaciones       VideojuegoAsignado[]
+}
+
+model Equipo {
+  id             Int           @id @default(autoincrement())
+  nombre_equipo  String        @unique
+  url_logo       String
+  estado         Estado
+  create_at      DateTime      @default(now())
+  update_at      DateTime      @default(now())
+  deleted        Boolean       @default(false)
+  estudiantes    Estudiante[]
+  videojuegos    Videojuego[]
+}
+
+model Videojuego {
+  id                 Int                 @id @default(autoincrement())
+  equipo_id          Int
+  nombre_videojuego  String
+  descripcion        String
+  create_at          DateTime           @default(now())
+  update_at          DateTime           @default(now())
+  deleted            Boolean            @default(false)
+  equipo             Equipo             @relation(fields: [equipo_id], references: [id])
+  evaluaciones       Evaluacion[]
+  asignaciones       VideojuegoAsignado[]
+}
+
+model VideojuegoAsignado {
+  id_videojuego  Int
+  id_jurado      Int
+  create_at      DateTime        @default(now())
+  deleted        Boolean         @default(false)
+  videojuego     Videojuego      @relation(fields: [id_videojuego], references: [id])
+  jurado         Jurado          @relation(fields: [id_jurado], references: [id])
+  @@id([id_videojuego, id_jurado])
+}
+
+model Materia {
+  id         Int       @id @default(autoincrement())
+  nombre     String
+  codigo     String    @unique
+  create_at  DateTime  @default(now())
+  update_at  DateTime  @default(now())
+  deleted    Boolean   @default(false)
+  nrcs       NRC[]
+}
+
+model NRC {
+  codigo_nrc     Int              @id @default(autoincrement())
+  materia_id     Int
+  profesor_id    Int
+  create_at      DateTime         @default(now())
+  update_at      DateTime         @default(now())
+  deleted        Boolean          @default(false)
+  materia        Materia          @relation(fields: [materia_id], references: [id])
+  profesor       Usuario          @relation("ProfesorNRC", fields: [profesor_id], references: [id])
+  estudianteNrcs EstudianteNRC[]
+}
+
+model Evaluacion {
+  id             Int           @id @default(autoincrement())
+  jurado_id      Int
+  videojuego_id  Int
+  comentarios    String
+  create_at      DateTime      @default(now())
+  update_at      DateTime      @default(now())
+  deleted        Boolean       @default(false)
+  jurado         Jurado        @relation(fields: [jurado_id], references: [id])
+  videojuego     Videojuego    @relation(fields: [videojuego_id], references: [id])
+  rubricas       Rubrica[]
+  @@unique([jurado_id, videojuego_id])
+}
+
+model Criterio {
+  id           Int        @id @default(autoincrement())
+  nombre       String
+  descripcion  String
+  create_at    DateTime   @default(now())
+  update_at    DateTime   @default(now())
+  deleted      Boolean    @default(false)
+  rubricas     Rubrica[]
+}
+
+model Rubrica {
+  id_evaluacion Int
+  id_criterio   Int
+  valoracion    Int
+  create_at     DateTime     @default(now())
+  deleted       Boolean      @default(false)
+  evaluacion    Evaluacion   @relation(fields: [id_evaluacion], references: [id])
+  criterio      Criterio     @relation(fields: [id_criterio], references: [id])
+  @@id([id_criterio, id_evaluacion])
+}
+
+model Rol {
+  id         Int           @id @default(autoincrement())
+  nombre     String
+  create_at  DateTime      @default(now())
+  update_at  DateTime      @default(now())
+  deleted    Boolean       @default(false)
+  usuarios   RolUsuario[]
+  endpoints  RolEndpoint[]
+}
+
+model RolUsuario {
+  id_usuario  Int
+  id_rol      Int
+  create_at   DateTime     @default(now())
+  deleted     Boolean      @default(false)
+  usuario     Usuario      @relation(fields: [id_usuario], references: [id])
+  rol         Rol          @relation(fields: [id_rol], references: [id])
+  @@id([id_rol, id_usuario])
+}
+
+model Endpoint {
+  id             Int       @id @default(autoincrement())
+  nombre         String?
+  metodo         Tipo
+  num_parametros Int
+  create_at      DateTime  @default(now())
+  update_at      DateTime  @default(now())
+  deleted        Boolean   @default(false)
+  roles          RolEndpoint[]
+}
+
+model RolEndpoint {
+  id_rol      Int
+  id_endpoint Int
+  create_at   DateTime     @default(now())
+  deleted     Boolean      @default(false)
+  rol         Rol          @relation(fields: [id_rol], references: [id])
+  endpoint    Endpoint     @relation(fields: [id_endpoint], references: [id])
+  @@id([id_endpoint, id_rol])
+}
